@@ -1,0 +1,791 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:email="http://www.mulesoft.org/schema/mule/email" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:compression="http://www.mulesoft.org/schema/mule/compression"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd">
+
+    <!-- HTTP Request Configuration -->
+    <http:request-config name="HTTP_Request_configuration_Prod" doc:name="HTTP Request configuration" doc:id="6eec1b3e-d647-4c80-bbc3-ada55ff6eaef" basePath="/api/Baker/V1">
+        <http:request-connection protocol="HTTPS" host="dayforcehcm.com" usePersistentConnections="false" connectionIdleTimeout="60000" port="443">
+            <reconnection />
+			<http:authentication>
+                <http:basic-authentication username="app.integration" password="Zr2Lh9X4uUQva33"/>
+            </http:authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <!-- Object Store Configuration -->
+
+    <!-- Scheduler Flow -->
+    <os:object-store name="Object_store" doc:name="Object store" doc:id="22aff878-ae79-453d-9091-414db3a433c7" />
+
+    <!-- Main Utility Flow -->
+	<http:request-config name="SpectrumApi" doc:name="HTTP Request configuration" doc:id="f4eb32cb-fe93-4b68-9e88-c55fa59171a9" >
+		<http:request-connection host="bakerelectrictest.dexterchaney.com" port="8482" protocol="HTTPS">
+			<http:authentication >
+				<http:basic-authentication username="TST" password="DayforceHRsync" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<http:request-config name="spectrumapiendpoints" doc:name="HTTP Request configuration" doc:id="ad70fb1c-6457-44b7-b912-fe6268e09dfb" >
+		<http:request-connection host="bakerelectrictest.dexterchaney.com" port="8482" protocol="HTTPS"/>
+	</http:request-config>
+	<http:request-config name="HTTP_Request_configuration_TST" doc:name="HTTP Request configuration" doc:id="5a5806ba-d77e-450c-a8b7-5cd9d2661474" basePath="/api/Baker/V1">
+		<http:request-connection protocol="HTTPS" host="test.dayforcehcm.com" port="443" >
+			<http:authentication >
+				<http:basic-authentication username="app.integration" password="Baker#$2025" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="0b2de9c1-9f0c-4022-a22e-0ab8d882f4db" >
+		<email:smtp-connection host="smtp.office365.com" port="587" user="sa_spectrumsync@baker-electric.com" password="@-*%&gt;M=C:6fpGJ8F" >
+       <email:properties > 
+       <email:property key="mail.smtp.starttls.enable" value="true" />
+				<email:property key="mail.smtp.ssl.trust" value="smtp.office365.com" /> 
+       </email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<flow name="UtilityFlow" doc:id="b3e8d43b-ed6c-49b3-ad41-799b38e9495f">
+        
+        <!-- Retrieve last sync time -->
+        <os:retrieve doc:name="Retrieve Last Sync Time" doc:id="f240a81d-6242-4817-b359-00e6abe85861"
+            key="lastSuccessfulSyncTime" objectStore="Object_store">
+            <os:default-value>  <!-- Default value for first run --><![CDATA[#["2025-03-27T01:00:00"]]]>
+            </os:default-value>
+        </os:retrieve>
+
+        <!-- Store retrieved value in a variable -->
+
+        <!-- Set the Current Timestamp -->
+        <ee:transform doc:name="Transform Message" doc:id="c1d5ec03-36ef-43b1-868b-7210853a5afb" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="lastSuccessfulSyncTime" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Set Current Time" doc:id="557e5a61-154b-466e-84b8-6211dd485b21">
+            <ee:variables>
+                <ee:set-variable variableName="currentTime"><![CDATA[%dw 2.0
+output application/java
+---
+now() as String {format: "yyyy-MM-dd'T'HH:mm:ss"}
+                    ]]>
+                </ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <!-- Log the Sync Times -->
+        <logger level="INFO" doc:name="Logger - Sync Times" doc:id="8b101f01-96f4-468e-abfc-4e00cd1b1070"
+            message="Fetching data from Dayforce: StartTime= #[vars.lastSuccessfulSyncTime], EndTime= #[vars.currentTime]"/>
+
+        <http:request method="GET" doc:name="Request" doc:id="e44480bb-1950-493c-a4ac-ef158a14f173" config-ref="HTTP_Request_configuration_Prod" path="/Employees">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"filterUpdatedStartDate" : vars.lastSuccessfulSyncTime,
+	"filterUpdatedEndDate" : vars.currentTime
+}]]]></http:query-params>
+		</http:request>
+
+        <!-- Store the Current Timestamp as lastSuccessfulSyncTime for Next Run -->
+        <os:store doc:name="Store New Sync Time" doc:id="84f2ee48-c8ba-4ae1-99f1-9d50f4d4a743"
+            key="lastSuccessfulSyncTime" objectStore="Object_store">
+            <os:value><![CDATA[#[vars.currentTime]]]></os:value>
+        </os:store>
+
+        <logger level="INFO" doc:name="Logger - Sync Completed" doc:id="b91c0aa2-c2a6-4eb3-919d-9661a0db47b1"
+            message="Updated lastSuccessfulSyncTime to #[vars.currentTime]"/>
+    </flow>
+	<flow name="Dayforcereport" doc:id="4ab0b781-5d06-4034-9786-e6d6e8a86883" >
+		<scheduler doc:name="Scheduler" doc:id="08a07d71-a181-4566-b88b-5d8911904e71" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="30" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<logger level="INFO" doc:name="Logger" doc:id="1ee0ebd9-1a71-44ab-917e-532672b93231" message='#["Dayforcereport"]' />
+		<ee:transform doc:name="Transform Message" doc:id="35d6d76e-fbe8-4dea-a762-db7ba29fec4c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<until-successful maxRetries="3" doc:name="Until Successful" doc:id="41610b53-9d96-43f7-a9ac-39851cff6ebf" millisBetweenRetries="30000">
+			<http:request method="POST" doc:name="Request" doc:id="30a56ff3-747f-4dd6-a557-800b411bf2aa" config-ref="SpectrumApi" path="/connect/token">
+			<http:body><![CDATA[#[%dw 2.0
+output application/java
+---
+write({
+  grant_type: "client_credentials",
+  client_id: "Spectrum-BE8DFE808B4",
+  client_secret: "A109DD1D-6910-4E03-8297-FA57C362D998",
+  scope: "spectrumapi"
+}, "application/x-www-form-urlencoded")]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+		</until-successful>
+		<ee:transform doc:name="Transform Message" doc:id="da9a7013-c922-48e2-9165-52c022e52f5b" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="token" ><![CDATA[payload.access_token]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:retrieve doc:name="Retrieve Last Sync Time" doc:id="7cb0e377-ae82-4b7c-9a70-cc826d4fad18" key="lastSuccessfulSyncTime" objectStore="Object_store" >
+		</os:retrieve>
+		<ee:transform doc:name="Transform Message" doc:id="b169d912-95a3-4ab1-916d-31ba005e3c3d" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="tlastSuccessfulSyncTime" ><![CDATA[//payload
+"2025-09-18T15:00:00"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="4f5a5ab5-56af-4e91-9dee-231f07fa38dd" >
+			<ee:message />
+			<ee:variables >
+				<ee:set-variable variableName="currentTime" ><![CDATA[%dw 2.0
+output application/java
+---
+//"2025-06-23T00:00:00"
+now() as DateTime as String {format: "yyyy-MM-dd'T'00:00:00"}]]></ee:set-variable>
+				<ee:set-variable variableName="lastSuccessfulSyncTime" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+				<ee:set-variable variableName="currenTime" ><![CDATA[%dw 2.0
+output application/java
+---
+//"2025-06-23T00:00:00"
+now() as DateTime as String {format: "yyyy-MM-dd'T'HH:mm:ss"}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Set Current Time" doc:id="1ce11ec1-3387-4a78-af75-b547e66e4619" >
+			<ee:variables >
+				<ee:set-variable variableName="framedURL" ><![CDATA["/Reports/DayforceReportforSpectrum_v3?fe23cc6b-fcff-4b1f-8ddd-699e42e884e7=" ++ vars.tlastSuccessfulSyncTime ++ "&22d70dcf-1eb2-4033-820f-3c9ca0c7d598=" ++ vars.currenTime]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="ee2402b5-6afa-4298-a8c7-79b82c09d5e8" >
+			<http:request method="GET" doc:name="Dayforce Data Extraction Call" doc:id="2cab7b96-b3e8-4b55-900e-b82a63b81dbd" config-ref="HTTP_Request_configuration_TST" path="#[vars.framedURL]" responseTimeout="900000">
+			</http:request>
+		</until-successful>
+		<ee:transform doc:name="Data Seggregation into 3 API's" doc:id="528bd9ca-588b-4494-95b4-73524aaa7204">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable variableName="originalpayload" ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-variable>
+				<ee:set-variable variableName="addRequiredFields" ><![CDATA[%dw 2.0
+output application/json
+var rows = payload.Data.Rows
+var weeklyCodes = ["BAZ", "BCW", "BEI", "NBB"]
+var biweeklyCodes = ["BCS", "Temp"]
+---
+//$.Employee_HireDate <= vars.currentTime and 
+rows filter($.Employee_HireDate >= vars.currentTime and $.EmploymentStatus_ShortName != "Pre-Start" and $.Employee_TerminationDate == null) map (row) -> {
+//rows filter($.EmployeeEmploymentStatus_EmployeeNumber == '152233' and $.EmploymentStatus_ShortName != "Pre-Start" and $.Employee_TerminationDate == null) map (row) -> {
+  Company_Code: row.CompanyCode default "",
+  Employee_Code: row.EmployeeEmploymentStatus_EmployeeNumber default "",
+  Alpha_Sort: (if (row.Employee_FirstName != null) ( 
+  (row.Employee_FirstName )[0 to 0]) else "" ) ++ upper(  
+   if (row.Employee_LastName != null)
+    (row.Employee_LastName )[0 to 0] else "" ),
+   First_Name: row.Employee_FirstName default "",
+  Middle_Name: if ((row.Employee_MiddleName as String default "") == "") "" else row.Employee_MiddleName,
+  Last_Name: row.Employee_LastName default "",
+  Employee_Suffix: "",
+//Worker_Comp_Code: row.PRWCBCode_WCBCode default "",
+Worker_Comp_Code: row.WorkersCompCode default "",
+        Department_Code: row.LedgerCode default "",
+Employment_Status: 
+    if ((row.EmploymentStatus_ShortName as String default "") == "Active") "A"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "LOA") "L"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "Terminated") "Z"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "Severance") "Z"
+    else "",
+// Pay_Type: upper(
+   // //if (row.PayType_LongName as String default "" contains "hourly") "H"
+   // else if (row.PayType_LongName as String default "" contains "salary") "S"
+  //  else if (row.PayType_LongName as String default "" contains "commission") "C"
+  //  else if (row.PayType_LongName as String default "" contains "overtime") "O"
+  //  else "H"
+  //),
+  Pay_Type: "H",
+  Pay_Frequency_Flag: 
+    if (weeklyCodes contains (row.PayGroup_XRefCode as String default "")) "W"
+    else if (biweeklyCodes contains (row.PayGroup_XRefCode as String default "")) "B"
+    else (row.PayGroup_XRefCode as String default ""),
+Hourly_Rate: 
+ if ((row.PayRate as Number default 0) > 0) 
+   (row.PayRate as Number) as String {format: "##0.0"}
+ else 
+    "0.00",
+  Fed_Tax_Code: "US",
+Subject_to_Fed_Tax: if (row.EmployeeFederalTaxInfo_IsTaxExempt == "True") "E" else "T",
+Subject_to_FICA_Fed:  "T",
+Subject_to_FUTA_Fed:  "T",
+Fed_Filing_Status: row.FederalFilingStatus as String default "" ,
+State_Tax_Code: row.StateTaxStateCode  default "",
+Subject_to_State_Tax: if (row.StateTaxIsTaxExempt == "True") "E" else "T",
+Subject_to_SDI_State:  "T" ,
+Subject_to_SUTA_State:  "T" ,
+State_Filing_Status : row.StateFilingStatus as String default "",
+Hire_Date_List1: (row.Employee_HireDate as DateTime)  as String {format: "MM/dd/yyyy"} default "",
+  Termination_Date_List3: (row.Employee_TerminationDate as DateTime) as String {format: "MM/dd/yyyy"} default "",
+  Employee_Place_Birth: row.Employee_BirthState default "",
+Employee_Veteran_Stat: 
+  if ((row.VeteransStatus as String default "") == "Disabled Veteran") "D"
+  else if ((row.VeteransStatus) == "Armed Forces Service Medal Veteran") "A"
+  else if ((row.VeteransStatus) == "Disabled Armed Forces") "M"
+  else if ((row.VeteransStatus) == "Other Protected Veteran") "O"
+  else if ((row.VeteransStatus) == "Disabled Other Protected Veteran") "P"
+  else "N",
+   Legal_First_Name: row.Employee_FirstName default "",
+   Legal_Middle_Name: if ((row.Employee_MiddleName as String default "") == "")   "" else row.Employee_MiddleName,
+  Legal_Last_Name: row.Employee_LastName default "",
+  Legal_Suffix: row.Employee_Suffix default "",
+ // Effective_Date: row.EffectivePayDate default ""
+  //Employee_Citizenship: row.PersonAddress_CountryCode default "",
+ // Employee_Driver_License_Class: row.DriverLicenseClass default "",
+ //Employee_Driver_License_State: row.IdentificationPlaceofIssue default "",
+   // Employee_Telephone_Memo : row.DenormEmployeeContact_HomePhone default "",
+   //Authorization_ID: "DayforceHRsync", 
+  //GUID: "e138d503-8ff1-4a39-9533-439d7c9a99e2",
+  //Emp_Foreign: if (row.Employee_TaxExempt != null) "Y" else "N",
+}]]></ee:set-variable>
+				<ee:set-variable variableName="updateRequiredFields" ><![CDATA[%dw 2.0
+output application/json
+var rows = payload.Data.Rows
+var weeklyCodes = ["BAZ", "BCW", "BEI", "NBB"]
+var biweeklyCodes = ["BCS", "Temp"]
+---
+//rows filter($.EmployeeEmploymentStatus_EmployeeNumber == '152233' and $.EmploymentStatus_ShortName != "Pre-Start" ) map (row) -> {
+rows filter($.EmploymentStatus_ShortName != "Pre-Start" ) map (row) -> {
+  Company_Code: row.CompanyCode default "",
+  Employee_Code: row.EmployeeEmploymentStatus_EmployeeNumber default "",
+  Alpha_Sort: (if (row.Employee_FirstName != null) ( 
+  (row.Employee_FirstName )[0 to 0]) else "" ) ++ upper(  
+   if (row.Employee_LastName != null)
+    (row.Employee_LastName )[0 to 0] else "" ),
+   First_Name: row.Employee_FirstName default "",
+  Middle_Name: if ((row.Employee_MiddleName as String default "") == "") "" else row.Employee_MiddleName,
+  Last_Name: row.Employee_LastName default "",
+  Employee_Suffix: row.Employee_Suffix default "",
+Worker_Comp_Code: row.WorkersCompCode default "",
+        Department_Code: row.LedgerCode default "",
+Employment_Status: 
+    if ((row.EmploymentStatus_ShortName as String default "") == "Active") "A"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "LOA") "L"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "Terminated") "Z"
+    else if ((row.EmploymentStatus_ShortName as String default "") == "Severance") "Z"
+    else "",
+    // Pay_Type: upper(
+   // //if (row.PayType_LongName as String default "" contains "hourly") "H"
+   // else if (row.PayType_LongName as String default "" contains "salary") "S"
+  //  else if (row.PayType_LongName as String default "" contains "commission") "C"
+  //  else if (row.PayType_LongName as String default "" contains "overtime") "O"
+  //  else "H"
+  //),
+  Pay_Type: "H",
+  Pay_Frequency_Flag: 
+    if (weeklyCodes contains (row.PayGroup_XRefCode as String default "")) "W"
+    else if (biweeklyCodes contains (row.PayGroup_XRefCode as String default "")) "B"
+    else (row.PayGroup_XRefCode as String default ""),
+//Hourly_Rate: 
+ // if ((row.PayRate as Number default 0) > 0) 
+   // (row.PayRate as Number) as String {format: "##0.0"}
+  //else 
+   // "0.00",
+  Fed_Tax_Code: "US",
+Subject_to_Fed_Tax: if (row.EmployeeFederalTaxInfo_IsTaxExempt == "True") "E" else "T",
+Subject_to_FICA_Fed:  "T",
+Subject_to_FUTA_Fed:  "T",
+Fed_Filing_Status: row.FederalFilingStatus as String default "", 
+State_Tax_Code: row.StateTaxStateCode,
+Subject_to_State_Tax: if (row.StateTaxIsTaxExempt == "True") "E" else "T",
+Subject_to_SDI_State:  "T" ,
+Subject_to_SUTA_State:  "T" ,
+State_Filing_Status : row.StateFilingStatus as String default "",
+Hire_Date_List1: (row.Employee_HireDate as DateTime)  as String {format: "MM/dd/yyyy"} default null,
+  Termination_Date_List3: (row.Employee_TerminationDate as DateTime) as String {format: "MM/dd/yyyy"} default "",
+  Employee_Place_Birth: row.Employee_BirthState  default "",
+Employee_Veteran_Stat: 
+  if ((row.VeteransStatus as String default "") == "Disabled Veteran") "D"
+  else if ((row.VeteransStatus) == "Armed Forces Service Medal Veteran") "A"
+  else if ((row.VeteransStatus) == "Disabled Armed Forces") "M"
+  else if ((row.VeteransStatus) == "Other Protected Veteran") "O"
+  else if ((row.VeteransStatus) == "Disabled Other Protected Veteran") "P"
+  else "N",
+ // Employee_Citizenship: row.PersonAddress_CountryCode  default "",
+  Employee_Driver_License_Class: row.DriverLicenseClass default "",
+   Legal_First_Name: row.Employee_FirstName default "",
+   Legal_Middle_Name: if ((row.Employee_MiddleName as String default "") == "")   "" else row.Employee_MiddleName,
+  Legal_Last_Name: row.Employee_LastName default "",
+  Legal_Suffix: row.Employee_Suffix default "",
+// Effective_Date: row.EffectivePayDate default ""
+ //Employee_Driver_License_State: row.IdentificationPlaceofIssue default "",
+  //  Employee_Telephone_Memo : row.DenormEmployeeContact_HomePhone default "",
+   //Authorization_ID: "DayforceHRsync", 
+  //GUID: "e138d503-8ff1-4a39-9533-439d7c9a99e2",
+  //Emp_Foreign: if (row.Employee_TaxExempt != null) "Y" else "N",
+}]]></ee:set-variable>
+				<ee:set-variable variableName="personalemp" ><![CDATA[%dw 2.0
+output application/json
+var rows = payload.Data.Rows
+---
+rows filter($.EmploymentStatus_ShortName != "Pre-Start") map (row) -> {
+//rows filter($.EmployeeEmploymentStatus_EmployeeNumber == '152233' and $.EmploymentStatus_ShortName != "Pre-Start") map (row) -> {
+	Company_Code: row.CompanyCode,
+	Employee_Code: row.EmployeeEmploymentStatus_EmployeeNumber,
+	Alpha_Sort: (if ( row.Employee_FirstName != null ) ((row.Employee_FirstName)[0 to 0]) else "") ++ upper(  
+   if ( row.Employee_LastName != null ) (row.Employee_LastName)[0 to 0] else "" ),
+	Emergency_Contact: row.EmergencyContact default "",
+	Emergency_Phone: row.EmergencyContactPhoneNumber default "",
+	Emergency_Relationship: row.Contact1Relationshiptemp default "",
+Worker_Comp_Code: row.WorkersCompCode default "",
+	//row.PRWCBCode_WCBCode,
+	Department_Code: row.LedgerCode,
+	Sex: row.Employee_Gender,
+	Social_Security: row.Employee_SocialSecurityNumber,
+	Birth_Date_List4: (row.Employee_BirthDate as DateTime)  as String {
+		format: "MM/dd/yyyy"
+	} default null,
+	Hire_Date_List1: (row.Hire_Date_List1 as DateTime)  as String {
+		format: "MM/dd/yyyy"
+	} default null,
+	Termination_Date_List3: (row.Employee_TerminationDate as DateTime)  as String {
+		format: "MM/dd/yyyy"
+	} default null,
+	Street_Address: if(row.PersonAddress_Address1 != null and row.PersonAddress_Address1 != "") row.PersonAddress_Address1 else "",
+	Street_Address2: if ((row.PersonAddress_Address2 != null and row.PersonAddress_Address2 != "" )) row.PersonAddress_Address2 else " ",
+	City_Address: row.PersonAddress_City default "",
+	Zip_Code: row.PersonAddress_PostalCode default "",
+	State: row.PersonAddress_StateCode default "",
+	Phone: if ( (row.DenormEmployeeContact_MobilePhone as String default "") != "" ) row.DenormEmployeeContact_MobilePhone
+  else if ( (row.DenormEmployeeContact_HomePhone as String default "") != "" ) row.DenormEmployeeContact_HomePhone
+  else 
+    "",
+	Employee_Email: row.DenormEmployeeContact_BusinessEmail,
+	Title: row.Job_ShortName,
+	Race: row.Race,
+	I9_Flag: row.I9Flag,
+	Employee_Driver_License_Expire: (row.IdentificationExpiryDate as DateTime)  as String {
+		format: "MM/dd/yyyy"
+	} default null,
+	Driver_license: row.IdentificationNumber,
+//	Employee_Mobile_Phone: row.DenormEmployeeContact_HomePhone
+	
+}
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="No work comp code email nod" doc:id="9f30f18b-dee7-4b6d-b8a7-7a0c5619cdc2" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="nowccemail" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.Data.Rows filter (($.EmployeeGroup_ShortName == null or  $.EmployeeGroup_ShortName == "") and ($.EmployeeGroup_LongName == null or  $.EmployeeGroup_LongName == ""))]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-variable value="#[[]]" doc:name="ErrorPayloadList" doc:id="0e173995-f837-4cf8-800e-3a064ae1b6fa" variableName="errorPayload"/>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="144a91cc-5f25-446d-adb1-d37107451a7f" >
+			<route >
+				<logger level="INFO" doc:name="Logger" doc:id="8b11cca9-dd82-4d41-9947-94b70660edcd" />
+				<choice doc:name="Choice" doc:id="2df451ba-4865-46e0-9421-74dd58448aef" >
+					<when expression="#[sizeOf(vars.addRequiredFields) &gt; 0]">
+						<try doc:name="Try" doc:id="7c329cc6-8e0a-4a1b-ab8f-57a113899fa9" >
+							<foreach doc:name="For Each" doc:id="ba76bddd-f52d-4500-8797-eb9435b43d17" collection="#[vars.addRequiredFields]">
+					<logger level="INFO" doc:name="Logger" doc:id="27c1d64f-e1bd-4316-8be6-614d64a5806a" message='#["add required fields started"]' />
+							<ee:transform doc:name="Transform Message" doc:id="d6c1bbd1-9d1c-4fe3-9db1-f9bcf5fbf907">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  employeeRequiredImports: [ payload ]
+}
+]]></ee:set-payload>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="test"><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "employeeRequiredImports": [
+    {
+      "Company_Code": "TST",
+      "Employee_Code": "D9852240",
+      "Alpha_Sort": "MARC",
+      "First_Name": "Marc-Anthony",
+      "Middle_Name": null,
+      "Last_Name": "Montalvo",
+      "Employee_Suffix": null,
+      "Worker_Comp_Code": "569442",
+      "Department_Code": "12",
+      "Employment_Status": "Active",
+      "Pay_Type": "HOURLY",
+      "Pay_Frequency_Flag": "BEI",
+      "Hourly_Rate": "16.50000",
+      "Emp_Foreign": null,
+      "Fed_Tax_Code": null,
+      "State_Tax_Code": "CA",
+      "Hire_Date_List1": "2025-05-13T00:00:00.0000000",
+      "Employee_Place_Birth": null,
+      "Employee_Veteran_Stat": "I am NOT a protected veteran",
+      "Employee_Citizenship": "USA",
+      "Employee_Driver_License_Class": "25",
+      "Employee_Driver_License_State": "CA",
+      "Employee_Telephone_Memo": null,
+      "Pref_Status": "Full Time",
+      "State_Filing_Status": "Married"
+    }
+  ]
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="4cb0933a-28c0-4eea-b942-3c8c79f93a4f" message="#[output application/json&#10;---&#10;payload]"/>
+								<until-successful maxRetries="5" doc:name="Until Successful" doc:id="1a9a8f8b-34ac-4abc-87a3-18d1e191b7d0">
+					<http:request method="POST" doc:name="add required" doc:id="7f61583c-2257-4b92-afca-55e9957cc227" config-ref="spectrumapiendpoints" path="/employee/addRequiredFields">
+									<http:headers><![CDATA[#[{	
+   "Authorization": "Bearer " ++ vars.token
+}]]]></http:headers>
+								</http:request>
+				</until-successful>
+								<logger level="INFO" doc:name="Logger" doc:id="ab9ced49-11af-4e56-8a38-6029353f5688" message="#[output application/json&#10;---&#10;payload]"/>
+								<ee:transform doc:name="Transform Message" doc:id="d7efc6a0-38ac-41a7-938b-3bef84eefbbd">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+								<choice doc:name="Check Error Exist" doc:id="6161b64d-c692-41b8-a542-3ad993089659" >
+									<when expression="#[payload.employeeRequiredImports.Error_Message?]">
+										<ee:transform doc:name="Transform Message" doc:id="d8036632-88e5-4a0c-a291-40e7e45bffd9">
+										<ee:message />
+										<ee:variables>
+											<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+									</when>
+								</choice>
+				</foreach>
+							<error-handler >
+								<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="bbab2b23-78f8-49cd-9b8a-74bf670c2717" type="EXPRESSION">
+									<ee:transform doc:name="Transform Message" doc:id="e87088ac-fb3e-4963-bb83-09993108bee9" >
+										<ee:message >
+										</ee:message>
+										<ee:variables >
+											<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+								</on-error-continue>
+							</error-handler>
+						</try>
+						<logger level="INFO" doc:name="Logger" doc:id="0144e2dd-77e5-47aa-9e8b-3be3773fbe66" message='#["add required fields completed"]'/>
+						<!-- Removed Here -->
+					</when>
+				</choice>
+				<choice doc:name="Choice" doc:id="3a1468b1-d9e4-4c4a-9d10-6a9c4936f15c">
+							<when expression="#[sizeOf(vars.personalemp) &gt; 0]">
+								<foreach doc:name="For Each" doc:id="73d7cb6f-f53b-4ccb-9a93-34c2596d17bc" collection="#[vars.personalemp]">
+									<try doc:name="Try" doc:id="14681f94-90ab-49f9-b52a-34f598cd3a86">
+									<ee:transform doc:name="Transform Message" doc:id="70db4358-2d95-40a1-a76e-ce77df0d8962">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  employeeRequiredImports:[ payload ]
+}
+]]></ee:set-payload>
+					</ee:message>
+											<ee:variables >
+												<ee:set-variable variableName="toAddError" ><![CDATA[%dw 2.0
+output application/json
+---
+({
+  "Company_Code": payload.Company_Code,
+  "Employee_Code": payload.Employee_Code,
+ })]]></ee:set-variable>
+											</ee:variables>
+				</ee:transform>
+									<ee:transform doc:name="Transform Message" doc:id="e14e0f2f-44ac-4619-b850-9681668a29e1">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns soap http://schemas.xmlsoap.org/soap/envelope/
+ns t http://www.northgate-is.com/proiv/webservices/types
+
+
+---
+soap#Envelope: {
+  soap#Body: {
+    t#UpdateEmp_Personal: payload.employeeRequiredImports map (row) -> {
+      GUID: "",
+      Authorization_ID: "DayforceHRsync",
+      Company_Code: row.Company_Code,
+      Employee_Code: row.Employee_Code,
+      Employment_Status: "",
+      Emergency_Contact: row.Emergency_Contact,
+      Emergency_Phone: row.Emergency_Phone,
+      Emergency_Relationship: row.Emergency_Relationship,      
+      Termination_Date_List3: row.Termination_Date_List3,
+      Street_Address: row.Street_Address,
+      Street_Address2: row.Street_Address2,
+      City_Address: row.City_Address,
+      State: row.State,
+      Zip_Code: row.Zip_Code,
+      Domicile_Address: "",
+      Domicile_Address2: "",
+      Domicile_City: "",
+      Domicile_State: "",
+      Domicile_Zip_Code: "",
+      Phone: row.Phone,
+      Employee_Fax: "",
+      Employee_Email: row.Employee_Email,
+      Supervisor_Code: "",
+      Employee_Location: "",
+      Union_Code: "",
+      Wage_Class: "",
+      Employee_Work_Class: "",
+      Pay_Rate_Code: "",
+      EEO_Class_Code: "",
+      Social_Security: row.Social_Security,
+      Title: row.Title,
+      Sex: row.Sex,
+      Race: row.Race,
+      Number_Of_Dependents: "",
+      Certified_Flag: "",
+      Marital_Status: "",
+      Delete_Flag: "",
+      Months_To_Next_Review: "",
+      Hire_Date_List1: row.Hire_Date_List1,
+      Birth_Date_List4:row.Birth_Date_List4,
+      Rehire_Date_List2: "",
+      Last_Review_Date_List7: "",
+      Spouse_Birth_Date_List6: "",
+      Spouse_Name: "",
+      Driver_License: row.Driver_license,
+      Employee_Driver_License_Expire: row.Employee_Driver_License_Expire,
+      Vacation_Hours_Balance: "",
+      Vacation_Hours_YTD: "",
+      Vacation_Control_Code: "",
+      Holiday_Hours_Balance: "",
+      Holiday_Hours_YTD: "",
+      Holiday_Control_Code: "",
+      Sick_Hours_Balance: "",
+      Sick_Hours_YTD: "",
+      Sick_Control_Code: "",
+      I9_Flag: row.I9_Flag,
+      I9_Expire_Date: "",
+      Employee_Mobile_Phone: "",
+      Employee_Extension: "",
+      Employee_Termination_Reason: "",
+      Employee_Rehire_Rating: ""
+    }
+  }
+}
+]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+									<http:request method="POST" doc:name="Personal Information" doc:id="8241e5f7-9639-4f1c-849d-4db78d82ffbe" config-ref="spectrumapiendpoints" path="/ws/UpdateEmp_Personal">
+										<http:headers><![CDATA[#[{	"Content-Type" : "text/xml; charset=utf-8",
+    "Authorization": "Bearer " ++ vars.token,
+    "SOAPAction": "UpdateEmp_Personal"
+}]]]></http:headers>
+									</http:request>
+									<ee:transform doc:name="Transform Message" doc:id="e35fc800-0045-4e04-a97a-967c1d12f83f">
+										<ee:message>
+											<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+										</ee:message>
+									</ee:transform>
+										<choice doc:name="Error Exists" doc:id="eb327593-c17b-447a-be53-67fd342fdb38" >
+											<when expression="#[payload.Envelope.Body.UpdateEmp_PersonalResponse.returnArray.returnData.response.error_code?]">
+												<ee:transform doc:name="Transform Message" doc:id="a4650210-aec0-4ed7-969f-163720ad1376">
+													<ee:message>
+														<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+UpdateEmp_PersonalResponse : payload.Envelope.Body.UpdateEmp_PersonalResponse.returnArray.returnData.response ++ vars.toAddError]]></ee:set-payload>
+													</ee:message>
+												</ee:transform>
+												<ee:transform doc:name="Transform Message" doc:id="c2c96b7c-34dd-434b-85e8-fd089b44e111" >
+													<ee:message />
+													<ee:variables >
+														<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+													</ee:variables>
+												</ee:transform>
+											</when>
+										</choice>
+										<error-handler >
+											<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="5cee8d14-f2f0-46ca-818d-24edb833e399" type="ANY">
+												<ee:transform doc:name="Transform Message" doc:id="e774129d-c231-4aef-869a-45ca082bc901">
+									<ee:message>
+									</ee:message>
+									<ee:variables>
+										<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+									</ee:variables>
+								</ee:transform>
+											</on-error-continue>
+										</error-handler>
+								</try>
+								</foreach>
+								<logger level="INFO" doc:name="Logger" doc:id="af5ce0dc-bf0f-4450-9fcd-d3691fa3c51a" message='#["add personal fields completed"]'/>
+							</when>
+						</choice>
+			</route>
+			<route >
+				<choice doc:name="Choice" doc:id="15e87446-ef11-44aa-9263-b05c29a3a44b" >
+					<when expression="#[sizeOf(vars.updateRequiredFields) &gt; 0]">
+						<logger level="INFO" doc:name="Logger" doc:id="310b12c5-f67f-4469-94e0-ff83b948fb46" message='#["Update required fields started"]'/>
+						<try doc:name="Try" doc:id="0b0fb228-d9a6-4e3a-9939-391d4a512830" >
+							<foreach doc:name="For Each" doc:id="e2bc0f8b-422a-460f-a8f6-92919b29873b" collection="#[vars.updateRequiredFields]">
+							<logger level="INFO" doc:name="Logger" doc:id="aa70e3ca-fd34-485c-bdf3-4ea3c9669665" message='#["Update required fields started"]' />
+							<ee:transform doc:name="Transform Message" doc:id="82d353b5-ddd4-44ac-a766-a53c4799441e">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  employeeRequiredImports: [ payload ]
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="d60b75a7-5f59-4eb9-96f8-d951baa1b168" message="#[output application/json&#10;---&#10;payload.employeeRequiredImports]"/>
+								<until-successful maxRetries="5" doc:name="Until Successful" doc:id="c8fb67af-4ad6-4111-a9b2-a77839922bb8">
+					<http:request method="POST" doc:name="Update required fields" doc:id="f53c0288-8d9c-4542-bce3-f0fe46d9da6c" config-ref="spectrumapiendpoints" path="/employee/updateRequiredFields">
+									<http:headers><![CDATA[#[{	
+    "Authorization": "Bearer " ++ vars.token
+}]]]></http:headers>
+								</http:request>
+				</until-successful>
+							<logger level="INFO" doc:name="Logger" doc:id="8dde1f11-d63b-40eb-ac47-e96f68f2bb4f" message="#[output application/json&#10;---&#10;payload]"/>
+								<ee:transform doc:name="Transform Message" doc:id="a9e4591c-90cc-447e-9a42-0fc7938affbc">
+									<ee:message>
+										<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+								<choice doc:name="Error Exist" doc:id="e5d52ffd-a240-4d1e-86c3-bed3f91efed8" >
+									<when expression="#[payload.employeeRequiredImports.Error_Message?]">
+										<ee:transform doc:name="Transform Message" doc:id="b381a87e-7269-41c8-ae33-15fd2200edce" >
+											<ee:message />
+											<ee:variables >
+												<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+											</ee:variables>
+										</ee:transform>
+									</when>
+								</choice>
+						</foreach>
+							<error-handler >
+								<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="00ea0e22-201e-4ef6-b49a-492e9dd14f7c" type="ANY">
+									<ee:transform doc:name="Transform Message" doc:id="d7e2e8d0-e674-4721-9efa-708a289b879c" >
+										<ee:message >
+										</ee:message>
+										<ee:variables >
+											<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+								</on-error-continue>
+							</error-handler>
+						</try>
+						<logger level="INFO" doc:name="Logger" doc:id="6c4b1d88-b231-4363-88ea-0216deb92d31" />
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="44fcc517-7fa1-49cb-bc22-9db5f5359cbd" >
+							<ee:message >
+								<ee:set-payload ><![CDATA["No New Employee data"]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</otherwise>
+				</choice>
+			</route>
+		</scatter-gather>
+		<os:store doc:name="Store New Sync Time" doc:id="976a54b0-4daa-4a44-bfd8-2682c9872503" key="lastSuccessfulSyncTime" objectStore="Object_store" >
+			<os:value ><![CDATA[#[%dw 2.0
+output application/java
+---
+vars.currenTTime]]]></os:value>
+		</os:store>
+		<async doc:name="Async" doc:id="5505f507-2c66-467a-be89-bf3584deedda" >
+			<choice doc:name="Choice" doc:id="f6045a99-31d1-4be7-aea9-0165df70416c" >
+				<when expression="#[sizeOf(vars.errorPayload) &gt; 0]">
+					<ee:transform doc:name="Transform Message" doc:id="238b1c31-6c3d-4190-849b-3e86072f1dea">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+flatten(vars.errorPayload..employeeRequiredImports) + flatten(vars.errorPayload..UpdateEmp_PersonalResponse)]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="53a2fe94-2d16-48e1-97a4-53a5edfe025c" message='Error Payload List ====== #[payload]' />
+					<email:send doc:name="Send" doc:id="cc96e158-832f-4689-9957-519fee19486f" config-ref="Email_SMTP" fromAddress="sa_spectrumsync@baker-electric.com" subject="Job summary">
+						<email:to-addresses >
+							<email:to-address value="revanth@cloudforia.com" />
+							<email:to-address value="humanresources@bakerhomeenergy.com" />
+							<email:to-address value="hroffice@baker-electric.com" />
+						</email:to-addresses>
+						<email:body>
+							<email:content ><![CDATA[please find the summary of the job below:]]></email:content>
+						</email:body>
+					</email:send>
+					<logger level="INFO" doc:name="Logger" doc:id="a4f7fd28-9774-4987-94a4-09eeed784dee" />
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="5cf35ae2-5bbd-4623-b1cf-d905e0f53412" />
+				</otherwise>
+			</choice>
+		</async>
+		<logger level="INFO" doc:name="Logger - Sync Completed" doc:id="6e1a62c8-34ca-45c2-a135-2056d8a1da3a" message="Updated lastSuccessfulSyncTime to #[vars.currentTime]" />
+	</flow>
+</mule>
