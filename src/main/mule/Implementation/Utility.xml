@@ -157,8 +157,8 @@ write({
 			<ee:message >
 			</ee:message>
 			<ee:variables >
-				<ee:set-variable variableName="tlastSuccessfulSyncTime" ><![CDATA[//payload
-"2025-09-18T15:00:00"]]></ee:set-variable>
+				<ee:set-variable variableName="tlastSuccessfulSyncTime" ><![CDATA[payload
+//"2025-09-18T15:00:00"]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 		<ee:transform doc:name="Transform Message" doc:id="4f5a5ab5-56af-4e91-9dee-231f07fa38dd" >
@@ -412,8 +412,8 @@ payload.Data.Rows filter (($.EmployeeGroup_ShortName == null or  $.EmployeeGroup
 			</ee:variables>
 		</ee:transform>
 		<set-variable value="#[[]]" doc:name="ErrorPayloadList" doc:id="0e173995-f837-4cf8-800e-3a064ae1b6fa" variableName="errorPayload"/>
-		<scatter-gather doc:name="Scatter-Gather" doc:id="144a91cc-5f25-446d-adb1-d37107451a7f" >
-			<route >
+<!-- 		<scatter-gather doc:name="Scatter-Gather" doc:id="144a91cc-5f25-446d-adb1-d37107451a7f" > -->
+<!-- 			<route >  -->
 				<logger level="INFO" doc:name="Logger" doc:id="8b11cca9-dd82-4d41-9947-94b70660edcd" />
 				<choice doc:name="Choice" doc:id="2df451ba-4865-46e0-9421-74dd58448aef" >
 					<when expression="#[sizeOf(vars.addRequiredFields) &gt; 0]">
@@ -636,7 +636,9 @@ payload]]></ee:set-payload>
 									</ee:transform>
 										<choice doc:name="Error Exists" doc:id="eb327593-c17b-447a-be53-67fd342fdb38" >
 											<when expression="#[payload.Envelope.Body.UpdateEmp_PersonalResponse.returnArray.returnData.response.error_code?]">
-												<ee:transform doc:name="Transform Message" doc:id="a4650210-aec0-4ed7-969f-163720ad1376">
+								<choice doc:name="Choice" doc:id="dac76651-3190-4437-ac47-817cf4682476" >
+									<when expression='#[payload.Envelope.Body.UpdateEmp_PersonalResponse.returnArray.returnData.response.desc != "Employee Code does not exist"]'>
+										<ee:transform doc:name="Transform Message" doc:id="a4650210-aec0-4ed7-969f-163720ad1376">
 													<ee:message>
 														<ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -644,15 +646,17 @@ output application/json
 UpdateEmp_PersonalResponse : payload.Envelope.Body.UpdateEmp_PersonalResponse.returnArray.returnData.response ++ vars.toAddError]]></ee:set-payload>
 													</ee:message>
 												</ee:transform>
-												<ee:transform doc:name="Transform Message" doc:id="c2c96b7c-34dd-434b-85e8-fd089b44e111" >
+										<ee:transform doc:name="Transform Message" doc:id="c2c96b7c-34dd-434b-85e8-fd089b44e111">
 													<ee:message />
-													<ee:variables >
-														<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+													<ee:variables>
+														<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
 output application/java
 ---
 vars.errorPayload + payload]]></ee:set-variable>
 													</ee:variables>
 												</ee:transform>
+									</when>
+								</choice>
 											</when>
 										</choice>
 										<error-handler >
@@ -671,10 +675,91 @@ vars.errorPayload + payload]]></ee:set-variable>
 										</error-handler>
 								</try>
 								</foreach>
-								<logger level="INFO" doc:name="Logger" doc:id="af5ce0dc-bf0f-4450-9fcd-d3691fa3c51a" message='#["add personal fields completed"]'/>
+									<logger level="INFO" doc:name="Logger" doc:id="d8b0a4e7-c5db-4a30-a514-ed75c6ddcf8f" message='#["add personal fields completed"]'/>
 							</when>
+						
 						</choice>
-			</route>
+						<choice doc:name="Choice" doc:id="68e41e89-823c-4469-97f1-5f8ed3007e5f" >
+					<when expression="#[sizeOf(vars.updateRequiredFields) &gt; 0]">
+						<logger level="INFO" doc:name="Logger" doc:id="3e536c65-a426-401c-becc-a4706b844809" message='#["Update required fields started"]'/>
+						<try doc:name="Try" doc:id="01101947-0555-47dc-8e34-6b2f4eaa23b2" >
+							<foreach doc:name="For Each" doc:id="5179273a-4534-4721-bd4f-651ea2dd5fcf" collection="#[vars.updateRequiredFields]">
+							<logger level="INFO" doc:name="Logger" doc:id="08c7bc70-7cae-4701-86bd-06a69494226f" message='#["Update required fields started"]' />
+							<ee:transform doc:name="Transform Message" doc:id="621522d0-88ec-47a2-915f-6b9717529d07">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  employeeRequiredImports: [ payload ]
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+							<logger level="INFO" doc:name="Logger" doc:id="32063f16-d1fb-4314-9d65-431b1e610d7b" message="#[output application/json&#10;---&#10;payload.employeeRequiredImports]"/>
+								<until-successful maxRetries="5" doc:name="Until Successful" doc:id="edeb3e21-d76e-4b76-8e38-382e9c5823c4">
+					<http:request method="POST" doc:name="Update required fields" doc:id="4c6440a9-b4ed-4685-b5dd-f6a4109efaaf" config-ref="spectrumapiendpoints" path="/employee/updateRequiredFields">
+									<http:headers><![CDATA[#[{	
+    "Authorization": "Bearer " ++ vars.token
+}]]]></http:headers>
+								</http:request>
+				</until-successful>
+							<logger level="INFO" doc:name="Logger" doc:id="180f476a-8efc-4aac-942c-339d4eb91664" message="#[output application/json&#10;---&#10;payload]"/>
+								<ee:transform doc:name="Transform Message" doc:id="20201e23-ce80-4d01-9027-0b91136307bf">
+									<ee:message>
+										<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+									</ee:message>
+								</ee:transform>
+								<choice doc:name="Error Exist" doc:id="44223d99-9497-4171-a134-bf51765c474f" >
+									<when expression="#[payload.employeeRequiredImports.Error_Message?]">
+								<choice doc:name="Choice" doc:id="1c0f903e-d166-4de9-b670-a4be5709c16e" >
+									<when expression='#[(!(payload.employeeRequiredImports..Error_Message contains "Employee code is invalid"))]'>
+										<ee:transform doc:name="Transform Message" doc:id="ab47b347-b540-4b31-811c-0bbfdb64a096">
+											<ee:message />
+											<ee:variables>
+												<ee:set-variable variableName="errorPayload"><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+											</ee:variables>
+										</ee:transform>
+									</when>
+									<otherwise >
+										<logger level="INFO" doc:name="Logger" doc:id="35b07aea-8818-4ee1-b17c-da352abfda78" message="================ Error Message as Employee Code Invalide ==================="/>
+									</otherwise>
+								</choice>
+									</when>
+								</choice>
+						</foreach>
+							<error-handler >
+								<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="c2af4cff-e6a6-4263-8245-2dd583215503" type="ANY">
+									<ee:transform doc:name="Transform Message" doc:id="2a3936fa-a2c1-4840-956f-db121506ee0b" >
+										<ee:message >
+										</ee:message>
+										<ee:variables >
+											<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
+output application/java
+---
+vars.errorPayload + payload]]></ee:set-variable>
+										</ee:variables>
+									</ee:transform>
+								</on-error-continue>
+							</error-handler>
+						</try>
+						<logger level="INFO" doc:name="Logger" doc:id="8966d14a-47bf-4347-9713-8f3570b91283" />
+					</when>
+					<otherwise >
+						<ee:transform doc:name="Transform Message" doc:id="82fe74f0-8669-4016-ab0e-76fcd7e2d562" >
+							<ee:message >
+								<ee:set-payload ><![CDATA["No New Employee data"]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+					</otherwise>
+				</choice>
+		<!-- </route>
 			<route >
 				<choice doc:name="Choice" doc:id="15e87446-ef11-44aa-9263-b05c29a3a44b" >
 					<when expression="#[sizeOf(vars.updateRequiredFields) &gt; 0]">
@@ -686,14 +771,14 @@ vars.errorPayload + payload]]></ee:set-variable>
 					<ee:message>
 						<ee:set-payload><![CDATA[%dw 2.0
 output application/json
----
+-&#45;&#45;
 {
   employeeRequiredImports: [ payload ]
 }
 ]]></ee:set-payload>
 					</ee:message>
 				</ee:transform>
-							<logger level="INFO" doc:name="Logger" doc:id="d60b75a7-5f59-4eb9-96f8-d951baa1b168" message="#[output application/json&#10;---&#10;payload.employeeRequiredImports]"/>
+							<logger level="INFO" doc:name="Logger" doc:id="d60b75a7-5f59-4eb9-96f8-d951baa1b168" message="#[output application/json&#10;-&#45;&#45;&#10;payload.employeeRequiredImports]"/>
 								<until-successful maxRetries="5" doc:name="Until Successful" doc:id="c8fb67af-4ad6-4111-a9b2-a77839922bb8">
 					<http:request method="POST" doc:name="Update required fields" doc:id="f53c0288-8d9c-4542-bce3-f0fe46d9da6c" config-ref="spectrumapiendpoints" path="/employee/updateRequiredFields">
 									<http:headers><![CDATA[#[{	
@@ -701,12 +786,12 @@ output application/json
 }]]]></http:headers>
 								</http:request>
 				</until-successful>
-							<logger level="INFO" doc:name="Logger" doc:id="8dde1f11-d63b-40eb-ac47-e96f68f2bb4f" message="#[output application/json&#10;---&#10;payload]"/>
+							<logger level="INFO" doc:name="Logger" doc:id="8dde1f11-d63b-40eb-ac47-e96f68f2bb4f" message="#[output application/json&#10;-&#45;&#45;&#10;payload]"/>
 								<ee:transform doc:name="Transform Message" doc:id="a9e4591c-90cc-447e-9a42-0fc7938affbc">
 									<ee:message>
 										<ee:set-payload><![CDATA[%dw 2.0
 output application/json
----
+-&#45;&#45;
 payload]]></ee:set-payload>
 									</ee:message>
 								</ee:transform>
@@ -717,7 +802,7 @@ payload]]></ee:set-payload>
 											<ee:variables >
 												<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
 output application/java
----
+-&#45;&#45;
 vars.errorPayload + payload]]></ee:set-variable>
 											</ee:variables>
 										</ee:transform>
@@ -732,7 +817,7 @@ vars.errorPayload + payload]]></ee:set-variable>
 										<ee:variables >
 											<ee:set-variable variableName="errorPayload" ><![CDATA[%dw 2.0
 output application/java
----
+-&#45;&#45;
 vars.errorPayload + payload]]></ee:set-variable>
 										</ee:variables>
 									</ee:transform>
@@ -750,7 +835,7 @@ vars.errorPayload + payload]]></ee:set-variable>
 					</otherwise>
 				</choice>
 			</route>
-		</scatter-gather>
+		</scatter-gather> -->
 		<os:store doc:name="Store New Sync Time" doc:id="976a54b0-4daa-4a44-bfd8-2682c9872503" key="lastSuccessfulSyncTime" objectStore="Object_store" >
 			<os:value ><![CDATA[#[%dw 2.0
 output application/java
@@ -763,9 +848,9 @@ vars.currenTTime]]]></os:value>
 					<ee:transform doc:name="Transform Message" doc:id="238b1c31-6c3d-4190-849b-3e86072f1dea">
 						<ee:message>
 							<ee:set-payload><![CDATA[%dw 2.0
-output application/json
+output application/csv
 ---
-flatten(vars.errorPayload..employeeRequiredImports) + flatten(vars.errorPayload..UpdateEmp_PersonalResponse)]]></ee:set-payload>
+flatten(if(vars.errorPayload..employeeRequiredImports != null) flatten(vars.errorPayload..employeeRequiredImports) else []  + if(vars.errorPayload..UpdateEmp_PersonalResponse != null) flatten(vars.errorPayload..UpdateEmp_PersonalResponse) else [])]]></ee:set-payload>
 						</ee:message>
 					</ee:transform>
 					<logger level="INFO" doc:name="Logger" doc:id="53a2fe94-2d16-48e1-97a4-53a5edfe025c" message='Error Payload List ====== #[payload]' />
@@ -778,6 +863,9 @@ flatten(vars.errorPayload..employeeRequiredImports) + flatten(vars.errorPayload.
 						<email:body>
 							<email:content ><![CDATA[please find the summary of the job below:]]></email:content>
 						</email:body>
+						<email:attachments ><![CDATA[#[{
+	'ErrorFile' : payload
+}]]]></email:attachments>
 					</email:send>
 					<logger level="INFO" doc:name="Logger" doc:id="a4f7fd28-9774-4987-94a4-09eeed784dee" />
 				</when>
