@@ -55,61 +55,61 @@ http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/em
        </email:properties>
 		</email:smtp-connection>
 	</email:smtp-config>
-	<flow name="UtilityFlow" doc:id="b3e8d43b-ed6c-49b3-ad41-799b38e9495f">
+	<!-- [STUDIO:"UtilityFlow"]<flow name="UtilityFlow" doc:id="b3e8d43b-ed6c-49b3-ad41-799b38e9495f">
         
-        <!-- Retrieve last sync time -->
+        <!&#45;&#45; Retrieve last sync time &#45;&#45;>
         <os:retrieve doc:name="Retrieve Last Sync Time" doc:id="f240a81d-6242-4817-b359-00e6abe85861"
             key="lastSuccessfulSyncTime" objectStore="Object_store">
-            <os:default-value>  <!-- Default value for first run --><![CDATA[#["2025-03-27T01:00:00"]]]>
+            <os:default-value>  <!&#45;&#45; Default value for first run &#45;&#45;><![CDATA[#["2025-03-27T01:00:00"&#93;&#93;&#93;>
             </os:default-value>
         </os:retrieve>
 
-        <!-- Store retrieved value in a variable -->
+        <!&#45;&#45; Store retrieved value in a variable &#45;&#45;>
 
-        <!-- Set the Current Timestamp -->
+        <!&#45;&#45; Set the Current Timestamp &#45;&#45;>
         <ee:transform doc:name="Transform Message" doc:id="c1d5ec03-36ef-43b1-868b-7210853a5afb" >
 			<ee:message >
 			</ee:message>
 			<ee:variables >
 				<ee:set-variable variableName="lastSuccessfulSyncTime" ><![CDATA[%dw 2.0
 output application/java
----
-payload]]></ee:set-variable>
+&#45;&#45;-
+payload&#93;&#93;></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 		<ee:transform doc:name="Set Current Time" doc:id="557e5a61-154b-466e-84b8-6211dd485b21">
             <ee:variables>
                 <ee:set-variable variableName="currentTime"><![CDATA[%dw 2.0
 output application/java
----
+&#45;&#45;-
 now() as String {format: "yyyy-MM-dd'T'HH:mm:ss"}
-                    ]]>
+                    &#93;&#93;>
                 </ee:set-variable>
             </ee:variables>
         </ee:transform>
 
-        <!-- Log the Sync Times -->
+        <!&#45;&#45; Log the Sync Times &#45;&#45;>
         <logger level="INFO" doc:name="Logger - Sync Times" doc:id="8b101f01-96f4-468e-abfc-4e00cd1b1070"
-            message="Fetching data from Dayforce: StartTime= #[vars.lastSuccessfulSyncTime], EndTime= #[vars.currentTime]"/>
+            message="Fetching data from Dayforce: StartTime= #[vars.lastSuccessfulSyncTime&#93;, EndTime= #[vars.currentTime&#93;"/>
 
         <http:request method="GET" doc:name="Request" doc:id="e44480bb-1950-493c-a4ac-ef158a14f173" config-ref="HTTP_Request_configuration_Prod" path="/Employees">
 			<http:query-params ><![CDATA[#[output application/java
----
+&#45;&#45;-
 {
 	"filterUpdatedStartDate" : vars.lastSuccessfulSyncTime,
 	"filterUpdatedEndDate" : vars.currentTime
-}]]]></http:query-params>
+}&#93;&#93;&#93;></http:query-params>
 		</http:request>
 
-        <!-- Store the Current Timestamp as lastSuccessfulSyncTime for Next Run -->
+        <!&#45;&#45; Store the Current Timestamp as lastSuccessfulSyncTime for Next Run &#45;&#45;>
         <os:store doc:name="Store New Sync Time" doc:id="84f2ee48-c8ba-4ae1-99f1-9d50f4d4a743"
             key="lastSuccessfulSyncTime" objectStore="Object_store">
-            <os:value><![CDATA[#[vars.currentTime]]]></os:value>
+            <os:value><![CDATA[#[vars.currentTime&#93;&#93;&#93;></os:value>
         </os:store>
 
         <logger level="INFO" doc:name="Logger - Sync Completed" doc:id="b91c0aa2-c2a6-4eb3-919d-9661a0db47b1"
-            message="Updated lastSuccessfulSyncTime to #[vars.currentTime]"/>
-    </flow>
+            message="Updated lastSuccessfulSyncTime to #[vars.currentTime&#93;"/>
+    </flow> [STUDIO] -->
 	<flow name="Dayforcereport" doc:id="4ab0b781-5d06-4034-9786-e6d6e8a86883" >
 		<scheduler doc:name="Scheduler" doc:id="08a07d71-a181-4566-b88b-5d8911904e71" >
 			<scheduling-strategy >
@@ -127,7 +127,7 @@ output application/java
 			</ee:message>
 		</ee:transform>
 		<until-successful maxRetries="3" doc:name="Until Successful" doc:id="41610b53-9d96-43f7-a9ac-39851cff6ebf" millisBetweenRetries="30000">
-			<http:request method="POST" doc:name="Request" doc:id="30a56ff3-747f-4dd6-a557-800b411bf2aa" config-ref="SpectrumApi" path="/connect/token">
+			<http:request method="POST" doc:name="Request spectrum token" doc:id="30a56ff3-747f-4dd6-a557-800b411bf2aa" config-ref="SpectrumApi" path="/connect/token">
 			<http:body><![CDATA[#[%dw 2.0
 output application/java
 ---
@@ -144,7 +144,7 @@ write({
 }]]]></http:headers>
 		</http:request>
 		</until-successful>
-		<ee:transform doc:name="Transform Message" doc:id="da9a7013-c922-48e2-9165-52c022e52f5b" >
+		<ee:transform doc:name="parsing the token into variable" doc:id="da9a7013-c922-48e2-9165-52c022e52f5b" >
 			<ee:message >
 			</ee:message>
 			<ee:variables >
@@ -153,36 +153,26 @@ write({
 		</ee:transform>
 		<os:retrieve doc:name="Retrieve Last Sync Time" doc:id="7cb0e377-ae82-4b7c-9a70-cc826d4fad18" key="lastSuccessfulSyncTime" objectStore="Object_store" >
 		</os:retrieve>
-		<ee:transform doc:name="Transform Message" doc:id="b169d912-95a3-4ab1-916d-31ba005e3c3d" >
-			<ee:message >
-			</ee:message>
-			<ee:variables >
-				<ee:set-variable variableName="tlastSuccessfulSyncTime" ><![CDATA[payload
-//"2025-09-18T15:00:00"]]></ee:set-variable>
-			</ee:variables>
-		</ee:transform>
-		<ee:transform doc:name="Transform Message" doc:id="4f5a5ab5-56af-4e91-9dee-231f07fa38dd" >
+		<ee:transform doc:name="Time and date transformations" doc:id="4f5a5ab5-56af-4e91-9dee-231f07fa38dd" >
 			<ee:message />
 			<ee:variables >
-				<ee:set-variable variableName="currentTime" ><![CDATA[%dw 2.0
+				<ee:set-variable variableName="currentdate" ><![CDATA[%dw 2.0
 output application/java
 ---
 //"2025-06-23T00:00:00"
 now() as DateTime as String {format: "yyyy-MM-dd'T'00:00:00"}]]></ee:set-variable>
-				<ee:set-variable variableName="lastSuccessfulSyncTime" ><![CDATA[%dw 2.0
-output application/java
----
-payload]]></ee:set-variable>
-				<ee:set-variable variableName="currenTime" ><![CDATA[%dw 2.0
+				<ee:set-variable variableName="currentTime" ><![CDATA[%dw 2.0
 output application/java
 ---
 //"2025-06-23T00:00:00"
 now() as DateTime as String {format: "yyyy-MM-dd'T'HH:mm:ss"}]]></ee:set-variable>
+				<ee:set-variable variableName="apilastSuccessfulSyncTime" ><![CDATA[//payload
+"2025-09-22T15:00:00"]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-		<ee:transform doc:name="Set Current Time" doc:id="1ce11ec1-3387-4a78-af75-b547e66e4619" >
+		<ee:transform doc:name="Frame api URL" doc:id="1ce11ec1-3387-4a78-af75-b547e66e4619" >
 			<ee:variables >
-				<ee:set-variable variableName="framedURL" ><![CDATA["/Reports/DayforceReportforSpectrum_v3?fe23cc6b-fcff-4b1f-8ddd-699e42e884e7=" ++ vars.tlastSuccessfulSyncTime ++ "&22d70dcf-1eb2-4033-820f-3c9ca0c7d598=" ++ vars.currenTime]]></ee:set-variable>
+				<ee:set-variable variableName="framedURL" ><![CDATA["/Reports/DayforceReportforSpectrum_v3?fe23cc6b-fcff-4b1f-8ddd-699e42e884e7=" ++ vars.apilastSuccessfulSyncTime ++ "&22d70dcf-1eb2-4033-820f-3c9ca0c7d598=" ++ vars.currentTime]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
 		<until-successful maxRetries="5" doc:name="Until Successful" doc:id="ee2402b5-6afa-4298-a8c7-79b82c09d5e8" >
@@ -204,7 +194,7 @@ var weeklyCodes = ["BAZ", "BCW", "BEI", "NBB"]
 var biweeklyCodes = ["BCS", "Temp"]
 ---
 //$.Employee_HireDate <= vars.currentTime and 
-rows filter($.Employee_HireDate >= vars.currentTime and $.EmploymentStatus_ShortName != "Pre-Start" and $.Employee_TerminationDate == null) map (row) -> {
+rows filter($.Employee_HireDate >= vars.currentdate and $.EmploymentStatus_ShortName != "Pre-Start" and $.Employee_TerminationDate == null) map (row) -> {
 //rows filter($.EmployeeEmploymentStatus_EmployeeNumber == '152233' and $.EmploymentStatus_ShortName != "Pre-Start" and $.Employee_TerminationDate == null) map (row) -> {
   Company_Code: row.CompanyCode default "",
   Employee_Code: row.EmployeeEmploymentStatus_EmployeeNumber default "",
@@ -484,8 +474,10 @@ output application/json
 payload]]></ee:set-payload>
 							</ee:message>
 						</ee:transform>
-								<choice doc:name="Check Error Exist" doc:id="6161b64d-c692-41b8-a542-3ad993089659" >
-									<when expression="#[payload.employeeRequiredImports.Error_Message?]">
+								<choice doc:name="Error exists" doc:id="1165b91a-96d6-42ce-a088-eebd2b038cf6" >
+							<when expression="#[payload.employeeRequiredImports.Error_Message?]">
+								<choice doc:name="Check Error Exist" doc:id="6161b64d-c692-41b8-a542-3ad993089659">
+									<when expression='#[(!(payload.employeeRequiredImports..Error_Message contains "Employee code already exists"))]'>
 										<ee:transform doc:name="Transform Message" doc:id="d8036632-88e5-4a0c-a291-40e7e45bffd9">
 										<ee:message />
 										<ee:variables>
@@ -496,7 +488,12 @@ vars.errorPayload + payload]]></ee:set-variable>
 										</ee:variables>
 									</ee:transform>
 									</when>
+									<otherwise >
+										<logger level="INFO" doc:name="Logger" doc:id="62031921-ed64-40bd-a2ec-efb74a147779" message="================ Error Message as Employee Code Invalide ==================="/>
+									</otherwise>
 								</choice>
+							</when>
+						</choice>
 				</foreach>
 							<error-handler >
 								<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="bbab2b23-78f8-49cd-9b8a-74bf670c2717" type="EXPRESSION">
@@ -840,32 +837,44 @@ vars.errorPayload + payload]]></ee:set-variable>
 			<os:value ><![CDATA[#[%dw 2.0
 output application/java
 ---
-vars.currenTTime]]]></os:value>
+vars.currentTime]]]></os:value>
 		</os:store>
 		<async doc:name="Async" doc:id="5505f507-2c66-467a-be89-bf3584deedda" >
 			<choice doc:name="Choice" doc:id="f6045a99-31d1-4be7-aea9-0165df70416c" >
 				<when expression="#[sizeOf(vars.errorPayload) &gt; 0]">
-					<ee:transform doc:name="Transform Message" doc:id="238b1c31-6c3d-4190-849b-3e86072f1dea">
+					<ee:transform doc:name="Transform Message" doc:id="6013c29a-ef46-43df-b6e0-b0406faf29cf">
 						<ee:message>
 							<ee:set-payload><![CDATA[%dw 2.0
-output application/csv
+output application/json
 ---
-flatten(if(vars.errorPayload..employeeRequiredImports != null) flatten(vars.errorPayload..employeeRequiredImports) else []  + if(vars.errorPayload..UpdateEmp_PersonalResponse != null) flatten(vars.errorPayload..UpdateEmp_PersonalResponse) else [])]]></ee:set-payload>
+{
+  errors: flatten(
+            (if (vars.errorPayload..employeeRequiredImports != null) 
+                vars.errorPayload..employeeRequiredImports 
+             else []) 
+            ++ 
+            (if (vars.errorPayload..UpdateEmp_PersonalResponse != null) 
+                vars.errorPayload..UpdateEmp_PersonalResponse 
+             else [])
+          )
+}
+]]></ee:set-payload>
 						</ee:message>
 					</ee:transform>
 					<logger level="INFO" doc:name="Logger" doc:id="53a2fe94-2d16-48e1-97a4-53a5edfe025c" message='Error Payload List ====== #[payload]' />
-					<email:send doc:name="Send" doc:id="cc96e158-832f-4689-9957-519fee19486f" config-ref="Email_SMTP" fromAddress="sa_spectrumsync@baker-electric.com" subject="Job summary">
+					<ee:transform doc:name="Transform Message" doc:id="d90ca6a1-2bbb-4fa5-8340-d78646e80123">
+						<ee:message>
+							<ee:set-payload><![CDATA[output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<email:send doc:name="Send" doc:id="cc96e158-832f-4689-9957-519fee19486f" config-ref="Email_SMTP" fromAddress="sa_spectrumsync@baker-electric.com" subject='Please find the job summary below'>
 						<email:to-addresses >
 							<email:to-address value="revanth@cloudforia.com" />
 							<email:to-address value="humanresources@bakerhomeenergy.com" />
 							<email:to-address value="hroffice@baker-electric.com" />
 						</email:to-addresses>
-						<email:body>
-							<email:content ><![CDATA[please find the summary of the job below:]]></email:content>
-						</email:body>
-						<email:attachments ><![CDATA[#[{
-	'ErrorFile' : payload
-}]]]></email:attachments>
 					</email:send>
 					<logger level="INFO" doc:name="Logger" doc:id="a4f7fd28-9774-4987-94a4-09eeed784dee" />
 				</when>
